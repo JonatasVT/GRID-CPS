@@ -2,3 +2,43 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+function sysCall_init()
+    sim.setStepping(true)
+    sim = require('sim')
+    Drill=sim.getObject('..')
+    count=0
+    part1=0
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+while true do
+    --print("coroutineMain, NM/Drill")
+     if count==0 then
+        local res,collPair1=sim.checkCollision(Drill,sim.handle_all)
+        if res==1 and collPair1[2]~=sim.getObjectParent(Drill) then
+            local p = sim.getObjectSpecialProperty(Drill)
+            sim.setObjectSpecialProperty(Drill, p ~ sim.objectspecialproperty_collidable)
+            sim.scaleObject(collPair1[2],1,1,0.5)
+            sim.setObjectParent(collPair1[2],Drill,true)
+            count=count+1
+            part1=collPair1[2]
+            print("drill + square")
+        end
+    end
+    sim.step()
+end
+end
+function sysCall_cleanup()
+   
+end 
