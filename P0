@@ -1,0 +1,62 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    self=sim.getObject("../Wreg0")
+    Rack=sim.getObject(":/Store")
+    pi=math.pi
+    sim.setStepping(true)
+    -- Put some initialization code here
+end
+
+function sysCall_thread()
+    sim.wait(0.5)
+    piece=sim.createPrimitiveShape(sim.primitiveshape_cylinder, {0.04,0.04,0.04})
+    H0=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.13,0.15,0.02})
+    sim.setObjectColor(H0,0,sim.colorcomponent_ambient_diffuse,{0.5,0.5,0.5})
+    sim.setObjectParent(piece,H0)
+    sim.setObjectPosition(piece,{0,-0.035,0.030},H0)
+    H1=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.01,0.003,0.015})
+    sim.setObjectColor(H1,0,sim.colorcomponent_ambient_diffuse,{0.7,0.8,0.8})
+    H2=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.03,0.003,0.015})
+    sim.setObjectColor(H2,0,sim.colorcomponent_ambient_diffuse,{0.7,0.8,0.8})
+    sim.setObjectParent(H1,H0)
+    sim.setObjectPosition(H1,{0.065,0,0.0175},H0)
+    sim.setObjectOrientation(H1,{0,0,pi/2},H0)
+    sim.setObjectParent(H2,H0)
+    sim.setObjectPosition(H2,{0.050,0,0.0175},H0)
+    P=sim.groupShapes({H1,H2,H0})
+    sim.setObjectParent(piece,P)
+    sim.setObjectPosition(piece,P,{0,-0.035,0.030})
+    sim.setObjectOrientation(P,{0,0,pi/2},self)
+    sim.setObjectPosition(P,self,{0,0,0})
+    sim.setObjectParent(P,Rack)
+    sim.setObjectAlias(P,"P0")
+    if sim.getBufferSignal("mp") then
+        mp=sim.getBufferSignal("mp")
+        sim.wait(0.1)
+        mp=sim.unpackTable(mp)
+        table.insert(mp,{P,sim.getObjectPosition(P)})
+        print(mp[table.getn(mp)])
+        print("n="..table.getn(mp))
+        sim.setBufferSignal("mp",sim.packTable(mp))
+    else 
+        mp={}
+        table.insert(mp,{P,sim.getObjectPosition(P)})
+        print("WReg=")
+        print(mp[1][1])
+        print(mp[1][2])
+        sim.setBufferSignal("mp",sim.packTable(mp))
+    end
+    sim.setObjectParent(self,-1)
+    sim.setBoolProperty(self, 'scriptDisabled', true)
+    -- Put your main code here, e.g.:
+    --
+    --[[while not sim.getSimulationStopping() do
+
+        sim.step();
+    end]]
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
