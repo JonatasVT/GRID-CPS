@@ -1,0 +1,83 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sim.setStepping(true)
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    -- Get the current pose of the robot's tooltip:
+
+ -- Main routine:
+    while true do
+        -- Initialization:
+        print("NM/MDRP")
+        sim.waitForSignal("RPC")
+        print("NM/MDRPC")
+        print(sim.getInt32Signal("NMBdetect"))
+        sim.waitForSignal("NMBdetect")
+        print("NM/MDNMB")
+        if sim.isHandle(sim.getInt32Signal("NMBdetect")) then
+            print("ishandleRP")
+            detection=sim.getInt32Signal("NMBdetect")
+            if sim.getObjectChild(detection,0)~=-1 then
+                pi=math.pi
+                print("-.-.-."..detection)
+                detection=sim.getObjectChild(detection,0)
+                print("-.-.-."..detection)
+                detectioname=sim.getObjectAlias(detection)
+                print("-.-.-."..detection)
+                if detectioname=="Cuboid" then
+                    print("Drill")
+                    Drill=sim.getObject('../Drill')
+                    CMRP=sim.getObjectPose(Drill,sim.handle_world)
+                    CMRP[3]=CMRP[3]+0.320
+                    OMRP=sim.getObjectPose(Drill,sim.handle_world)
+                    OMRP[3]=OMRP[3]+0.450
+                    sim.setInt32Signal("PCM",detection)
+                    print("PCM set "..detection)
+                    RPB3=sim.buildPose({-0.6,1.22,1.17},{0,0,-pi/2},0,nil)
+                    RPF3=sim.buildPose({-0.5,1.05,1.135},{0,0,-pi/2},0,nil)
+                    RPFB3=sim.buildPose({-0.5,1.05,1.28},{0,0,-pi/2},0,nil)
+                    RPBB3=sim.buildPose({-0.6,1.22,1.28},{0,0,-pi/2},0,nil)
+                    CRP=sim.buildPose({-0.565,1.18,1.18},{0,0,-pi/2},0,nil)
+                    sim.setBufferSignal("NMRP",sim.packTable({RPF3,RPFB3,RPBB3,RPB3,CRP,CMRP,OMRP}))
+                    sim.clearInt32Signal("RPC")
+                else
+                    if detectioname=="Cylinder" then
+                        print("Mill")
+                        Mill=sim.getObject('../Mill')
+                        CMRP=sim.getObjectPose(Mill,sim.handle_world)
+                        CMRP[3]=CMRP[3]+0.320
+                        OMRP=sim.getObjectPose(Mill,sim.handle_world)
+                        OMRP[3]=OMRP[3]+0.450
+                        sim.setInt32Signal("PCM",detection)
+                        print("PCM set "..detection)
+                        RPB3=sim.buildPose({-0.6,1.22,1.17},{0,0,-pi/2},0,nil)
+                        RPF3=sim.buildPose({-0.5,1.05,1.135},{0,0,-pi/2},0,nil)
+                        RPFB3=sim.buildPose({-0.5,1.05,1.28},{0,0,-pi/2},0,nil)
+                        RPBB3=sim.buildPose({-0.6,1.22,1.28},{0,0,-pi/2},0,nil)
+                        CRP=sim.buildPose({-0.565,1.18,1.18},{0,0,-pi/2},0,nil)
+                        sim.setBufferSignal("NMRP",sim.packTable({RPF3,RPFB3,RPBB3,RPB3,CRP,CMRP,OMRP}))
+                        sim.clearInt32Signal("RPC")
+                    else
+                        sim.setInt32Signal("NMpass",1)
+                    end
+                end
+            end
+            sim.step()
+        end
+        sim.step()
+    end
+end
