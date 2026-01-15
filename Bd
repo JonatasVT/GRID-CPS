@@ -1,0 +1,64 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sim.setStepping(true)
+    pc={}
+    pc[1]=sim.getObject("..")
+    sim.setInt32Signal("Mesa",pc[1])
+    count=0
+    part1=0
+    Lpd=sim.getInt32Signal('ALPd')
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    C=2
+    
+    while true do
+            sim.waitForSignal("NABM")
+            pc[C]=sim.getInt32Signal("NABM")
+            --print("coroutineMain, NA/Mesa")
+            if sim.isHandle (pc[C-1]) then
+                if sim.getObjectChild(pc[C-1],C-1)==-1 then
+                --print("pc[C-1]")
+                --print(sim.getObjectAlias(pc[C-1]))
+                --print("pc[C]")
+                --print(sim.getObjectAlias(pc[C]))
+                    p=sim.checkDistance(pc[C],pc[C-1],0.01)
+                    if p==1 then
+                        sim.setObjectParent(pc[C],pc[C-1],true)
+                        print("Table + square")
+                        if C>=3 then
+                           GP=sim.groupShapes({pc[C-1],pc[C]})
+                           sim.setObjectAlias(GP,"GP")
+                        end
+                        C=C+1
+                        sim.clearInt32Signal("NABM")
+                        sim.step()
+                    end
+                end
+            end
+            if C==4 then
+                sim.setInt32Signal("NAmount",3)
+                sim.setInt32Signal("GP",GP)
+                pc={}
+                pc[1]=sim.getObject("..")
+                C=2
+            end
+            sim.step()
+        end
+        sim.step()
+end
+function sysCall_cleanup()
+end
