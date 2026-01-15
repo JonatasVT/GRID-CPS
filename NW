@@ -1,0 +1,91 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setInt32Signal("NWgripper",0)
+    T0=sim.getInt32Signal("T0")
+    T1=sim.getInt32Signal("T1")
+    R=sim.getObject('../R')
+    Rack=sim.getInt32Signal("Rack")
+    sim.setObjectInt32Param(R,sim.scriptintparam_enabled,0)
+    gripper=sim.getObject('../FrankaGripper')
+    sim.clearInt32Signal("NWdetect")
+    corout=coroutine.create(coroutineMain)
+    sim.setStepping(true)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+function coroutineMain()
+    while true do
+        sim.waitForSignal("np")
+        sim.step()
+        if (sim.getInt32Signal("PP")==nil) then
+            if(sim.getInt32Signal("np")~=nil)then
+                if(sim.getInt32Signal("np")<1) then 
+                    sim.clearInt32Signal("np")
+                    print("clean NP")
+                    sim.step()
+                else 
+                    if sim.getInt32Signal("np") then
+                        --print("coroutineMain, NW")
+                        sim.waitForSignal("NWC")
+                        if det~=sim.getInt32Signal("NWdetect") and sim.getInt32Signal("NWpass")~=1 then
+                            det=sim.getInt32Signal("NWdetect")
+                        end
+                        if detb~=sim.getInt32Signal("NWBdetect") and sim.getInt32Signal("NWpass")~=1 then
+                            detb=sim.getInt32Signal("NWBdetect")
+                        end
+                        if det~=nil and det~=0 then
+                            if detb~=nil then
+                            print(det.." "..detb.." ")
+                            else
+                            print(det.." ")
+                            end
+                            if sim.getInt32Signal("NWpass")~=1 then
+                                if (det~=nil) then 
+                                    if detb~=0 then
+                                        sim.setInt32Signal("PP",-1)
+                                        sim.setInt32Signal("Rdet",det)
+                                        sim.setInt32Signal("WPull",detb)
+                                        print("Ativa R Pull")
+                                        sim.setObjectInt32Param(R,sim.scriptintparam_enabled,1)
+                                    else
+                                        if sim.getObjectChild(Rack,0)==-1  then 
+                                            print("rack child:")
+                                            print(sim.getObjectChild(Rack,0))
+                                            print("rack child det:")
+                                            print(det)
+                                            sim.wait(1)
+                                            sim.setInt32Signal("FRC",det)
+                                        else
+                                            sim.setInt32Signal("PP",1)
+                                            sim.setInt32Signal("Rdet",det)
+                                            print("push")
+                                            sim.setInt32Signal("WPush",1)
+                                            print("Ativa R Push")
+                                            sim.setObjectInt32Param(R,sim.scriptintparam_enabled,1)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    sim.clearInt32Signal("NWdetect")
+                    sim.clearInt32Signal("NWC")
+                    sim.step()
+                    end
+                end
+            end
+        end
+    end
+end
+function sysCall_cleanup()
+end
