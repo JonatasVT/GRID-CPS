@@ -1,0 +1,183 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()  
+    sim = require('sim')
+    simIK = require('simIK')
+    Rack=sim.getObject(":/Store")
+    F1C=sim.getObject(":/F1C")
+    NWC=sim.getObject(":/NWC")
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function callback(pose,velocity,accel,auxData)
+    sim.setObjectPose(auxData.target,sim.handle_world,pose)
+    simIK.handleGroup(ikEnv,auxData.ikGroups,{syncWorlds=true})
+end
+
+function moveToPose(maxVelocity,maxAcceleration,maxJerk,targetPose,auxData)
+    currentPose=sim.getObjectPose(auxData.target,sim.handle_world)
+    return sim.moveToPose(-1,currentPose,maxVelocity,maxAcceleration,maxJerk,targetPose,callback,auxData,{1,1,1,0.1})
+end
+
+function push()
+    pi=math.pi
+    sim.waitForSignal("RPush")
+    P=sim.getInt32Signal("RPush")
+    print("p="..P)
+    q=sim.getObjectPosition(P)
+    q[2]=q[2]+0.600
+    q[3]=q[3]+0.018
+    print(q)
+    W0=sim.buildPose(q,{0,pi/2,pi},0,nil)
+    print(W0)
+    q=sim.getObjectPosition(P)
+    q[2]=q[2]+0.050
+    q[3]=q[3]+0.018
+    W1=sim.buildPose(q,{-pi/2,0,-pi/2},0,nil)
+    RPF1=sim.buildPose({0.050,0,1.135},{0,pi/2,-pi},0,nil)
+    PRPF1=sim.buildPose({0.050,0,1.280},{0,pi/2,-pi},0,nil)
+    RPush={W0,W1,PRPF1,RPF1}
+    sim.clearInt32Signal("RPush")
+    return RPush
+end
+
+function pull()
+    pi=math.pi
+    sim.waitForSignal("RPull")
+    P=sim.getInt32Signal("RPull")
+    sim.waitForSignal("WP")
+    wq=sim.getBufferSignal("WP")
+    sim.clearBufferSignal("WP")
+    wq=sim.unpackTable(wq)
+    print("WQ="..wq[1].." "..wq[2].." "..wq[3])
+    q=sim.getObjectPosition(P)
+    q[1]=q[1]+0.100
+    q[3]=q[3]+0.100
+    print(q)
+    W0=sim.buildPose(q,{0,pi/2,-pi},0,nil)
+    print(W0)
+    q=sim.getObjectPosition(P)
+    q[1]=q[1]+0.050
+    q[3]=q[3]+0.018
+    W1=sim.buildPose(q,{0,pi/2,-pi},0,nil)
+    q0={}
+    q0[1]=wq[1]
+    q0[2]=wq[2]+0.600
+    q0[3]=wq[3]+0.018
+    print("WQ0="..q0[1].." "..q0[2].." "..q0[3])
+    WQ0=sim.buildPose(q0,{0,pi/2,pi},0,nil)
+    q1={}
+    q1[1]=wq[1]
+    q1[2]=wq[2]+0.050
+    q1[3]=wq[3]+0.018
+    print("WQ1="..q1[1].." "..q1[2].." "..q1[3])
+    WQ1=sim.buildPose(q1,{-pi/2,0,-pi/2},0,nil)
+    RPull={W0,W1,WQ0,WQ1}
+    sim.clearInt32Signal("RPull")
+    return RPull
+end
+
+function coroutineMain()
+    -- Initialization:
+    PP=sim.getInt32Signal("PP")
+    -- Get a few handles linked to ik in that robot:
+    base=sim.getObject('..')
+    tip=sim.getObject('../tip')
+    target=sim.getObject('../target')
+    sim.clearInt32Signal("RPush")
+    sim.clearInt32Signal("RPull")
+    -- Now build 4 IK groups handling the kinematics of this robot, using the convenience function simIK.addElementFromScene:
+    ikEnv=simIK.createEnvironment()
+    
+    ikGroup=simIK.createGroup(ikEnv)
+    simIK.setGroupCalculation(ikEnv,ikGroup,simIK.method_pseudo_inverse,0,3)
+    simIK.addElementFromScene(ikEnv,ikGroup,base,tip,target,simIK.constraint_pose)
+    
+    auxData={}
+    auxData.ikGroups=ikGroup
+    auxData.target=target
+    
+    -- Set-up some of the RML vectors:
+    maxVel={4}
+    maxAccel={2}
+    maxJerk={0.01}
+
+ -- Main routine:
+    self=sim.getObject("../R")
+    while true do
+        sim.waitForSignal("PP")
+        PP=sim.getInt32Signal("PP")
+        print("after wait PP")
+        sim.waitForSignal("Rdet")
+        print("after wait NW")
+        T=sim.getInt32Signal("Rdet")
+        if PP==1 then
+            print("-.-.-.-.Push-.-.-.-.-.")
+            RP=push()
+            sim.clearInt32Signal("PP")
+        else
+            sim.wait(2.2)
+            print("-.-.-.-.Pull-.-.-.-.")
+            RP=pull()
+            sim.clearInt32Signal("PP")
+        end
+        if RP then
+            q=RP[1]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            q=RP[2]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            sim.setInt32Signal("NWgripper",1)
+            sim.wait(2)
+            q=RP[1]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            q=RP[3]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            q=RP[4]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            sim.setInt32Signal("NWgripper",0)
+            sim.setInt32Signal("NWload",1)
+            sim.wait(2)
+            q=RP[1]
+            moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+            if(PP==1) then
+                print("Tpush="..T)
+                sim.setObjectPosition(P,{0,0,0.0123},T)
+                sim.setObjectParent(P,T)
+                sim.setInt32Signal("NWpass",1)
+                sim.clearInt32Signal("Rdet")
+                sim.setInt32Signal("FRC",T)
+            else
+                --sim.setObjectParent(P,Rack)
+                --sim.setInt32Signal("NWpass",0)
+                --print("reset:")
+                --print(sim.getObjectAlias(F1C))
+                --sim.setObjectInt32Param(NWC,sim.scriptintparam_enabled,0)
+                sim.clearInt32Signal("Rdet")
+                --sim.setInt32Signal("FRC",T)
+                sim.clearInt32Signal("NWBdetect")
+                sim.setInt32Signal("S1AR",1)
+                --sim.wait(2)
+                --sim.setObjectInt32Param(F1C,sim.scriptintparam_enabled,1)
+                --sim.setObjectInt32Param(NWC,sim.scriptintparam_enabled,1)
+                --sim.initScript(NWC)
+            end
+
+        end
+    sim.clearInt32Signal("PP")
+    sim.setObjectInt32Param(self,sim.scriptintparam_enabled,0)
+    end
+end
+
+function sysCall_cleanup()
+    
+end
