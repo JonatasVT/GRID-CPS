@@ -2,3 +2,64 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+function sysCall_init()
+    sim = require('sim')
+    pi=math.pi
+    -- Put some initialization code here
+    sim.setStepping(true) -- enabling stepping mode
+end
+
+function sysCall_thread()
+    -- Put your main code here, e.g.:
+    --
+    while not sim.getSimulationStopping() do
+        sim.waitForSignal("NADEL")
+        sim.waitForSignal("NAADEL")
+        if sim.getInt32Signal("NADEL")==1 then
+            GP=sim.getInt32Signal("NABdetect")
+            --print("GP=")
+            --print(GP)
+            if GP~=nil then
+                if sim.isHandle(GP) then
+                    piece=sim.getObjectChild(GP,0)
+                    print("deletion on")
+                    print({piece})
+                    print({GP})
+                    sim.wait(2)
+                    sim.removeObjects({GP})
+                    sim.removeObjects({piece})
+                else
+                    mp=sim.getBufferSignal("mp")
+                    sim.wait(0.1)
+                    mp=sim.unpackTable(mp)
+                    n=table.getn(mp)
+                    for id=1,n do
+                        --print(mp[id][1])
+                        if mp[id][1]==GP then
+                            mp[id][1]=0
+                            --print(mp)
+                            mp=sim.packTable(mp)
+                            sim.setBufferSignal("mp",mp)
+                        end
+                        if mp[id][1]==0 then
+                            if sim.getInt32Signal("NAGP") then
+                                mp[id][1]=sim.getInt32Signal("NAGP")
+                                print(mp)
+                                mp=sim.packTable(mp)
+                                sim.setBufferSignal("mp",mp)
+                                sim.clearInt32Signal("NAGP")
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        sim.clearBufferSignal("NADEL")
+        sim.clearBufferSignal("NAADEL")
+        sim.step() -- resume in next simulation step
+    end
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
