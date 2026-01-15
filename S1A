@@ -1,0 +1,45 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sim.setStepping(true)    
+    sensorA=sim.getObject('/S1A')
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    F1S=sim.getObject("../F1S")
+    Rack=sim.getInt32Signal("Rack")
+    while true do
+        --print("coroutineMain, F1")
+        rb,distb,ptb,objb=sim.handleProximitySensor(sensorA)
+        if sim.getInt32Signal("S1AR")~=nil then
+            sim.setInt32Signal("NWC",1)
+            sim.setInt32Signal("NWdetect",objb)
+            sim.clearInt32Signal("S1AR")
+        end
+        if (rb==1) then
+            if objb~= flag then
+                flag=objb
+                sim.setInt32Signal("NWpass",0)
+                sim.setInt32Signal("FHC",objb)
+                sim.setInt32Signal("NWdetect",objb)
+                print("NW S1AC"..sim.getInt32Signal("NWdetect").." ")
+            end
+        else
+            sim.setInt32Signal("NWdetect",0)
+            sim.setInt32Signal("FHC",0)
+        end
+    sim.step()
+    end
+end
