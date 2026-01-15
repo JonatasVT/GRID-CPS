@@ -2,3 +2,63 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+function sysCall_init()
+    sim = require('sim')
+    pi=math.pi
+    -- Put some initialization code here
+    sim.setStepping(true) -- enabling stepping mode
+end
+
+function sysCall_thread()
+    -- Put your main code here, e.g.:
+    --
+    while not sim.getSimulationStopping() do
+        sim.waitForSignal("NAdata")
+        data=sim.getBufferSignal("NAdata")
+        print(type(data))
+        print("data bridge")
+        print(data)
+        print(#data)
+        local dec = {}
+        for i = 1, #data do
+            dec[#dec+1] = string.byte(data, i)
+        end
+        print(table.concat(dec, " "))
+        data=sim.unpackTable(data)
+        if data[4]=='Cuboid' then
+            piece=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.04,0.04,0.04})
+        else
+            if data[4]=='Cylinder' then
+                piece=sim.createPrimitiveShape(sim.primitiveshape_cylinder, {0.04,0.04,0.04})
+            end
+        end
+        if sim.isHandle(piece) then
+            T=sim.getInt32Signal("NAdetect")
+            P=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.13,0.15,0.02})
+            sim.setObjectColor(P,0,sim.colorcomponent_ambient_diffuse,{0.5,0.5,0.5})
+            sim.setObjectParent(piece,P)
+            sim.setObjectPosition(piece,{0,-0.035,0.030},P)
+            H1=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.01,0.003,0.015})
+            sim.setObjectColor(H1,0,sim.colorcomponent_ambient_diffuse,{0.7,0.8,0.8})
+            H2=sim.createPrimitiveShape(sim.primitiveshape_cuboid, {0.03,0.003,0.015})
+            sim.setObjectColor(H2,0,sim.colorcomponent_ambient_diffuse,{0.7,0.8,0.8})
+            sim.setObjectParent(H1,P)
+            sim.setObjectPosition(H1,{0.065,0,0.0175},P)
+            sim.setObjectOrientation(H1,{0,0,pi/2},P)
+            sim.setObjectParent(H2,P)
+            sim.setObjectPosition(H2,{0.050,0,0.0175},P)
+            GP=sim.groupShapes({H1,H2,P})
+            sim.setInt32Signal("NAGP",GP)
+            sim.setObjectAlias(GP,data[3])
+            sim.setObjectParent(GP,T)
+            sim.setObjectPosition(GP,{0,0,0.0123},T)
+            sim.setObjectOrientation(GP,{0,0,0},T)
+        end
+        sim.clearBufferSignal("NAdata")
+        sim.setInt32Signal("NAload",1)
+        sim.step() -- resume in next simulation step
+    end
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
