@@ -1,0 +1,118 @@
+-- Copyright 2025 J?natas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setStepping(true)
+    sim.setInt32Signal("NQgripper",0)
+    sim.setInt32Signal("NQmount",0)
+    sim.clearInt32Signal("NQdetect")
+
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function callback(pose,velocity,accel,auxData)
+    sim.setObjectPose(auxData.target,sim.handle_world,pose)
+    simIK.handleGroup(ikEnv,auxData.ikGroups,{syncWorlds=true})
+end
+
+function moveToPose(maxVelocity,maxAcceleration,maxJerk,targetPose,auxData)
+    currentPose=sim.getObjectPose(auxData.target,sim.handle_world)
+    return sim.moveToPose(-1,currentPose,maxVelocity,maxAcceleration,maxJerk,targetPose,callback,auxData,{1,1,1,0.1})
+end
+
+function coroutineMain()
+    -- Initialization:
+    print("wait for B4")
+    sim.waitForSignal("B4")
+    B4=sim.getInt32Signal("B4")
+    maxJerk={0.2}
+    NQPull={}
+
+ -- Main routine:
+    while true do
+        --print("coroutineMain, NQ")
+        sim.waitForSignal("NQdetect")
+        T=sim.getInt32Signal("NQdetect")
+        if sim.getInt32Signal("NQBdetect")~=nil then
+            P=sim.getInt32Signal("NQBdetect")
+        end
+        if(sim.getInt32Signal("NQdetect")~=0 and sim.getInt32Signal("NQBdetect")~=0)then 
+            
+             if sim.getInt32Signal("NQwork")==nil then
+                --[[print("NQW nil")
+                print(P)
+                print(T)]]
+                if sim.getObjectParent(P)==T then 
+                    if sim.getObjectChild(P,0)~=-1 then
+                        if P~= NQPull[1] then
+                            sim.setInt32Signal("NQPush",1)
+                        end
+                    else
+                        if P~= NQPull[1] then
+                            sim.setInt32Signal("NQpass",1)
+                        end
+                    end   
+                end
+                if sim.getObjectParent(P)==B4 then
+                    if sim.getInt32Signal("NQmount")<3 then
+                        pc=sim.getObjectChild(P,0)
+                        if pc~=-1 then
+                            print("NQM="..sim.getInt32Signal("NQmount"))
+                            sim.setInt32Signal("NQBM",pc)
+                        else
+                            if sim.getInt32Signal("QMesa") then
+                                M=sim.getInt32Signal("QMesa")
+                                if sim.getObjectChild(M,1)==-1 then 
+                                    NQPull[1]=P
+                                    NQPull[2]=T
+                                    print(NQPull)
+                                    sim.setBufferSignal("NQPull",sim.packTable(NQPull))
+                                end
+                            end
+                        end
+                    end
+                    if sim.getInt32Signal("NQcheck")==1 then
+                        if sim.getInt32Signal("QMesa") then
+                            M=sim.getInt32Signal("QMesa")
+                            if sim.getObjectChild(M,1)~=-1 then
+                                check=sim.getObjectChild(M,1)
+                                if sim.getObjectAlias(check,-1)=="GP" then
+                                    print("check")
+                                    print(sim.getObjectAlias(check,-1))
+                                    sim.setInt32Signal("NQMB",1)
+                                    sim.setInt32Signal("CGP",check)
+                                    sim.step()
+                                else
+                                    print("check")
+                                    print(sim.getObjectAlias(check,-1))
+                                    sim.setInt32Signal("NQMO",check)
+                                    sim.step()
+                                end
+                            else
+                                sim.setInt32Signal("NQcheck",0)
+                            end 
+                        end
+                    end
+                    sim.step()
+                end
+                sim.step()
+            end
+            sim.step()
+        end
+        sim.step()
+    end
+    sim.step()
+end
+function sysCall_cleanup()
+end
