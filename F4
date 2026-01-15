@@ -2,3 +2,85 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+function sysCall_init()
+    sim = require('sim')
+    sensorHandle=sim.getObject("../S3A")
+    sensorB=sim.getObject("../S3B")
+    corout=coroutine.create(coroutineMain)
+    connector=sim.getObject('../attachPointF3')
+    sim.setInt32Signal("F3",connector)
+    sim.setStepping(true)
+    sim.clearInt32Signal("NAdetect")
+    flag=1
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    F3S=sim.getObject("../F3S")
+    while true do
+        if sim.getInt32Signal("NAwork")~=1 then
+            --print("coroutineMain, F3")
+            rb,distb,ptb,objb=sim.readProximitySensor(sensorB)
+            if (rb==1) then
+                r,dist,pt,obj=sim.handleProximitySensor(sensorHandle)
+                --print(r)
+                if (r==1)then
+                    --print("NAp "..sim.getInt32Signal("NApass"))
+                    if sim.getInt32Signal("NApass")~=1 then
+                        --print("Pobj "..sim.getObjectParent(obj))
+                       -- print("obj "..obj)
+                        --print(sim.getObjectAlias(obj))
+                        --print("conn "..connector)
+                        sig=sim.getObjectAlias(obj)
+                        if sim.getObjectParent(obj)~=connector then
+                           -- print(flag)
+                            if obj~=flag then
+                                if objb~= sim.getInt32Signal("NABdetect") then
+                                    sim.setInt32Signal("NABdetect",objb)
+                                    print("NAB "..sim.getInt32Signal("NABdetect").." ")
+                                end
+                                --print("sig "..sig)
+                                p=sim.getObjectPosition(obj,F3S)
+                                --print(math.abs(p[2]))
+                                if math.abs(p[2])<0.005 then
+                                    sim.setInt32Signal(sig,1)
+                                    flag=obj
+                                    sim.setObjectParent(obj,connector,true)
+                                    sim.wait(2)
+                                    sim.setInt32Signal("NAdetect",obj)
+                                    sim.setInt32Signal("NAADEL",1)
+                                    print("NAD "..sim.getInt32Signal("NAdetect"))
+                                    sim.step();
+                                end
+                            end
+                        end
+                    end
+                    if sim.getInt32Signal("NApass")==1 and sim.getObjectParent(obj)==connector then
+                        sim.setInt32Signal(sig,0)
+                        sim.setObjectParent(obj,-1,true) 
+                        print("F3 se ne pass")
+                        sim.setInt32Signal("NApass",0)
+                        sim.clearInt32Signal("NABdetect")
+                        print("NAp "..sim.getInt32Signal("NApass"))
+                        sim.step();
+                    end
+                else
+                   -- sim.setInt32Signal("NAdetect",0)
+                    sim.setInt32Signal("NApass",0)
+                end
+            else
+                --sim.clearInt32Signal("NABdetect")
+            end
+        end
+        sim.step()
+    end
+end
