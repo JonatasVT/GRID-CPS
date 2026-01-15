@@ -2,3 +2,105 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+ function sysCall_thread()
+    sim = require('sim')
+    simZMQ = require('simZMQ')
+    sim.setStepping(true)
+    print('Connecting to hello world server...')
+    context = simZMQ.ctx_new()
+    requester = simZMQ.socket(context, simZMQ.DEALER)
+    simZMQ.connect(requester, 'tcp://localhost:5501')
+    flag={0,0,0,0,0}
+    retur={1,2,3,4,5}
+    while sim.getInt32Signal("NAload")~=1 do
+        sim.waitForSignal("NABdetect")
+        print("F2SERVER NAB")
+        print(sim.getInt32Signal("NABdetect"))
+        if sim.isHandle(flag[1]) then
+            --print(flag[1])
+            if flag[1]~=sim.getInt32Signal("NABdetect") then
+                print(flag[5])
+                print(retur[5])
+                if sim.getInt32Signal("NAdetect")~=retur[5] then
+                    if sim.getInt32Signal("NABdetect")~=retur[3] then
+                        if flag[1]~=sim.getInt32Signal("NABdetect") then
+                            flag[1]=sim.getInt32Signal("NABdetect")
+                            flag[2]=sim.getObjectChild(flag[1],0)
+                            flag[3]=sim.getObjectAlias(flag[1])
+                            flag[4]=sim.getObjectAlias(flag[2])
+                            flag[5]=sim.getObjectParent(flag[1])  
+                            print("[requester] Sending:")
+                            print(flag)
+                            simZMQ.send(requester, sim.packTable(flag), 0)
+                        end
+                    end
+                end
+            end
+        else
+            --print(flag[5])
+            --print(retur[5])
+            if sim.getInt32Signal("NAdetect")~=retur[5] then
+                if sim.getInt32Signal("NABdetect")~=retur[3] then
+                    if flag[1]~=sim.getInt32Signal("NABdetect") then
+                        flag[1]=sim.getInt32Signal("NABdetect")
+                        flag[2]=sim.getObjectChild(flag[1],0)
+                        flag[3]=sim.getObjectAlias(flag[1])
+                        flag[4]=sim.getObjectAlias(flag[2])
+                        flag[5]=sim.getObjectParent(flag[1])  
+                        print("[requester] Sending:")
+                        print(flag)
+                        simZMQ.send(requester, sim.packTable(flag), 0)
+                    end
+                end
+            end
+        end
+        local rc, data = simZMQ.recv(requester, 0)
+        print(data)
+        if data~=nil then
+            print("received data=")
+            print(data)
+            print(type(data))
+            if data=="delete" then
+                print(data)
+                print("NADEL==1")
+                sim.setInt32Signal("NADEL",1)
+                simZMQ.send(requester,"deleted",0)
+            else
+                if data=="NADC" then
+                    sim.setInt32Signal("NApass",1)
+                    sim.clearInt32Signal("NAdetect")                 
+                    sim.clearInt32Signal("NABdetect")
+                    sim.step()
+                else
+                    if data=="NAWset" then
+                        print("NAWSET")
+                        sim.setInt32Signal("NAwork",1)
+                    else
+                        if data=="NAWclean" then
+                            print("NAWCLR")
+                            sim.clearInt32Signal("NAwork")
+                        else
+                            if #data>7 then
+                                if #data<60 then
+                                    print(type(data))
+                                    sim.setBufferSignal("NAdata",data)
+                                    retur=sim.unpackTable(data)
+                                    print('[requester] Delete:')
+                                    simZMQ.send(requester,"delete",0)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        data=nil
+        sim.step()
+    end
+end
+
+function sysCall_cleanup()
+    simZMQ.close(requester)
+    simZMQ.ctx_term(context)
+end
