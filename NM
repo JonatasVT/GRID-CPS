@@ -1,0 +1,75 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setStepping(true)
+    sim.setInt32Signal("NMgripper",0)
+    sim.clearInt32Signal("NMdetect")
+    sim.clearInt32Signal("NMBdetect")
+    corout=coroutine.create(coroutineMain)
+    R=sim.getObject('../R')
+    sim.setInt32Signal("NMR",R)
+    --print("NMR SET")
+    sim.setObjectInt32Param(R,sim.scriptintparam_enabled,0)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+ 
+function coroutineMain()
+ -- Main routine:
+    while true do
+        --print("coroutineMain, NM")
+        sim.waitForSignal("Bridge")
+        sim.waitForSignal("NMdetect")
+        det=sim.getInt32Signal("NMdetect")
+        sim.waitForSignal("NMBdetect")
+        P=sim.getInt32Signal("NMBdetect")
+        --print("P="..sim.getObjectAlias(P))
+        --print("PC="..sim.getObjectChild(P,0))
+        if sim.isHandle(P) then
+            if (sim.getBoolProperty(R, 'scriptDisabled')==true) then
+                if det~=nil and det~=0 then
+                    if sim.getInt32Signal("NMpass")~=1 and sim.getInt32Signal("NMBdetect")~=0 then
+                        if sim.getObjectChild(P,0)~=-1 then 
+                            if P~=PL then
+                                print("ativa NMR")
+                                --print("P NM="..sim.getObjectAlias(P))
+                                sim.setObjectInt32Param(R,sim.scriptintparam_enabled,1)
+                                sim.clearInt32Signal("NMdetect")
+                                sim.setInt32Signal("NMDC",1)
+                                sim.clearInt32Signal("Bridge")
+                                PL=P
+                            end
+                        else
+                            if sim.getObjectChild(P,0)==-1 then 
+                                if P~=PL then
+                                    --print("P NM="..sim.getObjectAlias(P))
+                                    --print("PC="..sim.getObjectChild(P,0))
+                                    sim.setInt32Signal("NMpass",1)
+                                    sim.setInt32Signal("NMDC",1)
+                                    sim.clearInt32Signal("NMdetect")
+                                    sim.clearInt32Signal("Bridge")
+                                    PL=P
+                                end
+                            end
+                        end
+                    end
+                end
+                
+            end
+        end
+        sim.step()
+    end
+
+end
+function sysCall_cleanup()
+end
