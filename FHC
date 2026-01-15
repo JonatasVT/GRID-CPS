@@ -1,0 +1,45 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sim.setStepping(true)    
+    corout=coroutine.create(coroutineMain)
+    connector=sim.getObject('/attachPointF1')
+    sim.setInt32Signal("F1",connector)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    F1S=sim.getObject("../F1S")
+    Rack=sim.getInt32Signal("Rack")
+    while true do
+        if sim.getInt32Signal("NWpass")~=1 then
+                --print("coroutine FHC")
+                obj=sim.getInt32Signal("FHC")
+                sig=sim.getObjectAlias(obj)
+                p=sim.getObjectPosition(obj,F1S)
+                if obj~= flag then
+                    --print(math.abs(p[2]))
+                    if math.abs(p[2])<0.02 then
+                    flag=obj
+                        sim.setInt32Signal(sig,1)
+                        sim.setObjectParent(obj,connector,true)
+                        sim.setObjectPose(obj, F1S, {0,0,0,0,0,0,180})
+                        print("FHC HOLD")
+                        sim.setInt32Signal("NWC",1)
+                        sim.wait(2)
+                    end
+                end
+        end
+    sim.step()
+    end
+end
