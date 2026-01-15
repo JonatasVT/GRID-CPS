@@ -2,3 +2,44 @@
 -- License: Apache-2.0
 
 -- This code is under development and subject to ongoing refinement.
+
+function sysCall_init()
+    sim = require('sim')
+    pi=math.pi
+    -- Put some initialization code here
+    sim.setStepping(true) -- enabling stepping mode
+end
+
+function sysCall_thread()
+    -- Put your main code here, e.g.:
+    --
+    while not sim.getSimulationStopping() do
+        sim.waitForSignal("DEL")
+        if sim.getInt32Signal("DEL")==1 then
+            GP=sim.getInt32Signal("NABdetect")
+            if GP~=nil then
+                if sim.isHandle(GP) then
+                    print("deletion on")
+                    piece=sim.getObjectChild(GP,0)
+                    print({piece})
+                    print({GP})
+                    if sim.getObjectChild(GP,0)~=-1 then
+                        sim.removeObjects({piece})
+                    end
+                    sim.removeObjects({GP})
+                    print("PCMCLN")
+                    sim.clearInt32Signal("PCM")
+                    sim.clearBufferSignal("NARP")
+                    print(sim.getBufferSignal("NARP"))
+                    print("bridge clear NARP")
+                    sim.clearInt32Signal("DEL")
+                end
+            end
+            --sim.clearInt32Signal("NAdetect")
+            
+        end
+        sim.step() -- resume in next simulation step
+    end
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
