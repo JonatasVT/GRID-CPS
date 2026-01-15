@@ -1,0 +1,141 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setStepping(true)
+    sim.setInt32Signal("NAgripper",0)
+    sim.setInt32Signal("NAmount",0)
+    sim.clearInt32Signal("NAdetect")
+
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function callback(pose,velocity,accel,auxData)
+    sim.setObjectPose(auxData.target,sim.handle_world,pose)
+    simIK.handleGroup(ikEnv,auxData.ikGroups,{syncWorlds=true})
+end
+
+function moveToPose(maxVelocity,maxAcceleration,maxJerk,targetPose,auxData)
+    currentPose=sim.getObjectPose(auxData.target,sim.handle_world)
+    return sim.moveToPose(-1,currentPose,maxVelocity,maxAcceleration,maxJerk,targetPose,callback,auxData,{1,1,1,0.1})
+end
+
+function coroutineMain()
+    -- Initialization:
+    print("wait for B3")
+    sim.waitForSignal("B3")
+    B3=sim.getInt32Signal("B3")
+    print(B3)
+    gripper=sim.getObject('../FrankaGripper')
+    RPB3=sim.buildPose({-1.231,-1.0855,1.17},{0,0,0},0,nil)
+    RPF3=sim.buildPose({-1.050,-1,1.135},{0,0,0},0,nil)
+    RPFB3=sim.buildPose({-1.050,-1,1.280},{0,0,0},0,nil)
+    RPBB3=sim.buildPose({-1.231,-1.0855,1.280},{0,0,0},0,nil)
+    CRP=sim.buildPose({-1.181,-1.0505,1.172},{0,0,0},0,nil)
+    CMRP=sim.buildPose({-2.1,-1,0.96},{0,0,0},0,nil)
+    OMRP=sim.buildPose({-2.1,-1,1.1},{0,0,0},0,nil)
+    RP={RPF3,RPFB3,RPBB3,RPB3,CRP,CMRP,OMRP}
+
+    -- Get a few handles linked to ik in that robot:
+    base=sim.getObject('..')
+    tip=sim.getObject('../tip')
+    target=sim.getObject('../target')
+    
+    -- Now build 4 IK groups handling the kinematics of this robot, using the convenience function simIK.addElementFromScene:
+    ikEnv=simIK.createEnvironment()
+    
+    ikGroup=simIK.createGroup(ikEnv)
+    simIK.setGroupCalculation(ikEnv,ikGroup,simIK.method_pseudo_inverse,0,3)
+    simIK.addElementFromScene(ikEnv,ikGroup,base,tip,target,simIK.constraint_pose)
+    
+    auxData={}
+    auxData.ikGroups=ikGroup
+    auxData.target=target
+    
+    -- Get the current pose of the robot's tooltip:
+    local initQ=sim.getObjectPose(target,sim.handle_world)
+
+    -- Set-up some of the RML vectors:
+    maxVel={4}
+    maxAccel={2}
+    maxJerk={0.2}
+    NAPull={}
+
+ -- Main routine:
+    while true do
+        --print("coroutineMain, NA")
+        sim.waitForSignal("NAdetect")
+        T=sim.getInt32Signal("NAdetect")
+        if sim.getInt32Signal("NABdetect")~=nil then
+            P=sim.getInt32Signal("NABdetect")
+        end
+        if sim.isHandle(P) then
+            if(sim.getInt32Signal("NAdetect")~=0 and sim.getInt32Signal("NABdetect")~=0)then 
+                 if sim.getInt32Signal("NAwork")==nil then
+                    --[[print("NAW nil")
+                    print(P)
+                    print(T)]]
+                    if sim.getObjectParent(P)==T then 
+                        if sim.getObjectChild(P,0)~=-1 then
+                            if P~= NAPull[1] then
+                                sim.setInt32Signal("NAPush",1)
+                            end
+                        else
+                            if P~= NAPull[1] then
+                                sim.setInt32Signal("NApass",1)
+                            end
+                        end   
+                    end
+                    if sim.getObjectParent(P)==B3 then
+                        if sim.getInt32Signal("NAmount")<3 then
+                            pc=sim.getObjectChild(P,0)
+                            if pc~=-1 then
+                                print("NAM="..sim.getInt32Signal("NAmount"))
+                                sim.setInt32Signal("NABM",pc)
+                            else
+                                NAPull[1]=P
+                                NAPull[2]=T
+                                print(NAPull)
+                                sim.setBufferSignal("NAPull",sim.packTable(NAPull))
+                            end
+                        end
+                        if sim.getInt32Signal("NAmount")==3 then
+                            if sim.getInt32Signal("Mesa") then
+                                M=sim.getInt32Signal("Mesa")
+                                if sim.getObjectChild(M,1)~=-1 then
+                                    sim.setInt32Signal("NAMB",1)
+                                else
+                                    NAPull={}
+                                    NAPull[1]=P
+                                    NAPull[2]=T
+                                    print(NAPull)
+                                    sim.setBufferSignal("NAPull",sim.packTable(NAPull))
+                                    sim.setInt32Signal("NAmount",0)
+                                end 
+                            end
+                        end
+                        sim.step()
+                    end
+                    sim.step()
+                end
+                sim.step()
+            end
+        end
+        sim.step()
+    end
+    sim.step()
+end
+function sysCall_cleanup()
+    simIK.eraseEnvironment(ikEnv)
+end
