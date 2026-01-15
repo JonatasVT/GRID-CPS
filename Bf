@@ -1,0 +1,58 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    B3=sim.getObject('..')
+    sim.setInt32Signal("B3",B3)
+    sim.setStepping(true)
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    while true do
+        --print("coroutineMain, B3")
+        if sim.getInt32Signal("NABdetect")~=nil then
+            if sim.isHandle(sim.getInt32Signal("NABdetect")) then
+                Pallet=sim.getInt32Signal("NABdetect")
+                p=sim.getObjectPosition(Pallet,B3)
+                if (math.abs(p[1])+math.abs(p[2])+math.abs(p[3]))<0.015 then
+                    if sim.getInt32Signal("B3")==1 then
+                        sim.setObjectParent(Pallet,B3,true)
+                        sim.setInt32Signal("B3",0)
+                        print("B3=0")
+                        print(sim.getInt32Signal("NAdetect"))
+                        print(sim.getInt32Signal("NABdetect"))
+                    end
+                end
+            end
+        end
+        if sim.getInt32Signal("GP")~=nil then
+            if sim.isHandle(sim.getInt32Signal("GP")) then
+                GP=sim.getInt32Signal("GP")
+                --print("GP="..GP)
+                p=sim.getObjectPosition(GP,Pallet)
+                if (math.abs(p[1])+math.abs(p[2])+math.abs(p[3]))<0.065 then
+                    sim.setObjectParent(GP,Pallet,true)
+                    sim.setObjectPosition(GP,{0,-0.035,0.06},Pallet)
+                    sim.setInt32Signal("B3",0)
+                end
+            end
+        end
+        sim.step()
+    end
+    
+end
+
+function sysCall_cleanup()
+   
+end
