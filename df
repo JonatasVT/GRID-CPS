@@ -1,0 +1,105 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setInt32Signal("NAgripper",0)
+    sim.clearInt32Signal("NAdetect")
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function callback(pose,velocity,accel,auxData)
+    sim.setObjectPose(auxData.target,sim.handle_world,pose)
+    simIK.handleGroup(ikEnv,auxData.ikGroups,{syncWorlds=true})
+end
+
+function moveToPose(maxVelocity,maxAcceleration,maxJerk,targetPose,auxData)
+    currentPose=sim.getObjectPose(auxData.target,sim.handle_world)
+    return sim.moveToPose(-1,currentPose,maxVelocity,maxAcceleration,maxJerk,targetPose,callback,auxData,{1,1,1,0.1})
+end
+
+function coroutineMain()
+    -- Initialization:
+    RPFB3=sim.buildPose({-1.181,-1.0505,1.280},{0,0,0},0,nil)
+    CRP=sim.buildPose({-1.181,-1.0505,1.172},{0,0,0},0,nil)
+    CMRP=sim.buildPose({-2.1,-1,1.0},{0,0,0},0,nil)
+    OMRP=sim.buildPose({-2.1,-1,1.04},{0,0,0},0,nil)
+    RP={RPFB3,CRP,CMRP,OMRP}
+    -- Get a handles linked to ik in that robot:
+    base=sim.getObject('..')
+    tip=sim.getObject('../tip')
+    target=sim.getObject('../target')
+    
+    -- Now build 4 IK groups handling the kinematics of this robot, using the convenience function simIK.addElementFromScene:
+    ikEnv=simIK.createEnvironment()
+    
+    ikGroup=simIK.createGroup(ikEnv)
+    simIK.setGroupCalculation(ikEnv,ikGroup,simIK.method_pseudo_inverse,0,3)
+    simIK.addElementFromScene(ikEnv,ikGroup,base,tip,target,simIK.constraint_pose)
+    
+    auxData={}
+    auxData.ikGroups=ikGroup
+    auxData.target=target
+    
+    -- Get the current pose of the robot's tooltip:
+    local initQ=sim.getObjectPose(target,sim.handle_world)
+
+    -- Set-up some of the RML vectors:
+    maxVel={4}
+    maxAccel={2}
+    maxJerk={0.2}
+
+ -- Main routine:
+    while true do
+        sim.waitForSignal("NAMB")
+        print("coroutineMain, MB")
+        sim.setInt32Signal("NAwork",1)
+         -- open gripper:
+        sim.setInt32Signal("NAgripper",0)
+        sim.wait(2)
+        sim.step()
+        -- Go straight over
+        q=RP[4]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go take square
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)            
+         -- Activate suction pad:
+        sim.setInt32Signal("NAgripper",1)
+        sim.wait(2)
+        sim.step()           
+        -- Go straight over
+        q=RP[4]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go straight over
+        q=RP[1]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go down release the square
+        print("NAmount= "..sim.getInt32Signal("NAmount"))
+        q=RP[2]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- open gripper:
+        sim.setInt32Signal("NAgripper",0)
+        sim.wait(2)
+        sim.step()
+        -- Go straight over
+        q=RP[1]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.clearInt32Signal("NAMB")
+        sim.clearInt32Signal("NAwork")
+        sim.step()
+    end
+end
+function sysCall_cleanup()
+    simIK.eraseEnvironment(ikEnv)
+end
