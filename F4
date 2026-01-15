@@ -1,0 +1,83 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sensorHandle=sim.getObject("../S4A")
+    sensorB=sim.getObject("../S4B")
+    corout=coroutine.create(coroutineMain)
+    connector=sim.getObject('../attachPointF4')
+    sim.setInt32Signal("F4",connector)
+    sim.setStepping(true)
+    sim.clearInt32Signal("NQdetect")
+    flag=1
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    F4S=sim.getObject("../F4S")
+    while true do
+        if sim.getInt32Signal("NQwork")~=1 then
+            --print("coroutineMain, F4")
+            rb,distb,ptb,objb=sim.readProximitySensor(sensorB)
+            if (rb==1) then
+                r,dist,pt,obj=sim.handleProximitySensor(sensorHandle)
+                --print(r)
+                if (r==1)then
+                    --print("NQp "..sim.getInt32Signal("NQpass"))
+                    if sim.getInt32Signal("NQpass")~=1 then
+                        --print("Pobj "..sim.getObjectParent(obj))
+                       -- print("obj "..obj)
+                        --print(sim.getObjectAlias(obj))
+                        --print("conn "..connector)
+                        sig=sim.getObjectAlias(obj)
+                        if sim.getObjectParent(obj)~=connector then
+                           -- print(flag)
+                            if obj~=flag then
+                                if objb~= sim.getInt32Signal("NQBdetect") then
+                                    sim.setInt32Signal("NQBdetect",objb)
+                                    print("NQB "..sim.getInt32Signal("NQBdetect").." ")
+                                end
+                                --print("sig "..sig)
+                                p=sim.getObjectPosition(obj,F4S)
+                                print(math.abs(p[2]))
+                                if math.abs(p[2])<0.005 then
+                                    sim.setInt32Signal(sig,1)
+                                    flag=obj
+                                    sim.setObjectParent(obj,connector,true)
+                                    sim.wait(2)
+                                    sim.setInt32Signal("NQdetect",obj)
+                                    print("NQD "..sim.getInt32Signal("NQdetect"))
+                                    sim.step();
+                                end
+                            end
+                        end
+                    end
+                    if sim.getInt32Signal("NQpass")==1 and sim.getObjectParent(obj)==connector then
+                        sim.setInt32Signal(sig,0)
+                        sim.setObjectParent(obj,-1,true) 
+                        print("F4 se ne pass")
+                        sim.setInt32Signal("NQpass",0)
+                        sim.clearInt32Signal("NQBdetect")
+                        print("NQp "..sim.getInt32Signal("NQpass"))
+                        sim.step();
+                    end
+                else
+                   -- sim.setInt32Signal("NQdetect",0)
+                    sim.setInt32Signal("NQpass",0)
+                end
+            else
+                --sim.clearInt32Signal("NQBdetect")
+            end
+        end
+        sim.step()
+    end
+end
