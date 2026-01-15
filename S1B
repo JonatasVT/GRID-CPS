@@ -1,0 +1,37 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    sim.setStepping(true)    
+    sensorB=sim.getObject('/S1B')
+    corout=coroutine.create(coroutineMain)
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function coroutineMain()
+    F1S=sim.getObject("../F1S")
+    Rack=sim.getInt32Signal("Rack")
+    while true do
+        --print("coroutineMain, F1")
+        r,dist,pt,obj=sim.readProximitySensor(sensorB)
+        if (r==1) then
+            if obj~= flag then
+                flag=obj
+                sim.setInt32Signal("NWBdetect",obj)
+                print("NWBdetect S1BC"..sim.getInt32Signal("NWBdetect").." ")
+            end
+        else
+            sim.setInt32Signal("NWBdetect",0)
+        end
+    sim.step()
+    end
+end
