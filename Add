@@ -1,0 +1,111 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    pi=math.pi
+    Rack=sim.getObject("../Store")
+    sim.setInt32Signal("Rack",Rack)
+    -- Put some initialization code here
+     sim.setStepping(true) -- enabling stepping mode
+end
+function waitForInt32Signal(signalName, signalValue)
+    while sim.getInt32Signal(signalName) ~= signalValue do sim.yield() end
+end
+
+function sysCall_thread()
+    -- Put your main code here, e.g.:
+    while not sim.getSimulationStopping() do
+        sim.waitForSignal("np")
+        np=sim.getInt32Signal("np")
+        sim.waitForSignal("mp")
+        mp=sim.getBufferSignal("mp")
+        sim.wait(0.1)
+        mp=sim.unpackTable(mp)
+        if(np>1) and (np<=6) then 
+            copyar={}
+            copyar[1]=mp[table.getn(mp)-1][1]
+            copyar[2]=sim.getObjectChild(mp[table.getn(mp)-1][1],0)
+            copyard=sim.copyPasteObjects(copyar)
+            sim.setObjectParent(copyard[2],copyard[1])
+            sim.setObjectParent(copyard[1],Rack)
+            print("coy handle="..copyard[1])
+            pos={}
+            pos[1]=mp[table.getn(mp)-1][2][1]-0.17
+            pos[2]=mp[table.getn(mp)-1][2][2]
+            pos[3]=mp[table.getn(mp)-1][2][3]
+            pos=sim.buildPose(pos,{0,0,pi/2},0,nil)
+            sim.setObjectPose(copyard[1],pos)
+            name=tostring((np-1)*2)
+            sim.setObjectAlias(copyard[1],"P"..name)
+            table.insert(mp,{copyard[1],sim.getObjectPosition(copyard[1])})
+            print(mp[table.getn(mp)])
+            print("n="..table.getn(mp))
+            copyar={}
+            copyar[1]=mp[table.getn(mp)-1][1]
+            copyar[2]=sim.getObjectChild(mp[table.getn(mp)-1][1],0)
+            copyard=sim.copyPasteObjects(copyar)
+            sim.setObjectParent(copyard[2],copyard[1])
+            sim.setObjectParent(copyard[1],Rack)
+            print("coy handle="..copyard[1])
+            pos={}
+            pos[1]=mp[table.getn(mp)-1][2][1]-0.17
+            pos[2]=mp[table.getn(mp)-1][2][2]
+            pos[3]=mp[table.getn(mp)-1][2][3]
+            pos=sim.buildPose(pos,{0,0,pi/2},0,nil)
+            sim.setObjectPose(copyard[1],pos)
+            name=tostring((np-1)*2+1)
+            sim.setObjectAlias(copyard[1],"P"..name)
+            table.insert(mp,{copyard[1],sim.getObjectPosition(copyard[1])})
+            print(mp[table.getn(mp)])
+            print("n="..table.getn(mp))
+            sim.setBufferSignal("mp",sim.packTable(mp))
+        end
+        if(np>6) and (np<=18) then 
+            copyar={}
+            copyar[1]=mp[(np-6)*2-1][1]
+            copyar[2]=sim.getObjectChild(mp[(np-6)*2-1][1],0)
+            copyard=sim.copyPasteObjects(copyar)
+            sim.setObjectParent(copyard[2],copyard[1])
+            sim.setObjectParent(copyard[1],Rack)
+            print("coy handle="..copyard[1])
+            pos={}
+            pos[1]=mp[(np-6)*2-1][2][1]
+            pos[2]=mp[(np-6)*2-1][2][2]
+            pos[3]=mp[(np-6)*2-1][2][3]-0.3
+            pos=sim.buildPose(pos,{0,0,pi/2},0,nil)
+            sim.setObjectPose(copyard[1],pos)
+            name=tostring((np-1)*2)
+            sim.setObjectAlias(copyard[1],"P"..name)
+            table.insert(mp,{copyard[1],sim.getObjectPosition(copyard[1])})
+            print(mp[table.getn(mp)])
+            print("n="..table.getn(mp))
+            copyar={}
+            copyar[1]=mp[(np-6)*2][1]
+            copyar[2]=sim.getObjectChild(mp[(np-6)*2][1],0)
+            copyard=sim.copyPasteObjects(copyar)
+            sim.setObjectParent(copyard[2],copyard[1])
+            sim.setObjectParent(copyard[1],Rack)
+            print("coy handle="..copyard[1])
+            pos={}
+            pos[1]=mp[(np-6)*2][2][1]
+            pos[2]=mp[(np-6)*2][2][2]
+            pos[3]=mp[(np-6)*2][2][3]-0.3
+            pos=sim.buildPose(pos,{0,0,pi/2},0,nil)
+            sim.setObjectPose(copyard[1],pos)
+            name=tostring((np-1)*2+1)
+            sim.setObjectAlias(copyard[1],"P"..name)
+            table.insert(mp,{copyard[1],sim.getObjectPosition(copyard[1])})
+            print(mp[table.getn(mp)])
+            print("n="..table.getn(mp))
+            sim.setBufferSignal("mp",sim.packTable(mp))
+        end
+        while sim.getInt32Signal("np")==np do  sim.yield() sim.step() end
+    --     local p = sim.getObjectPosition(objHandle)
+    --     p[1] = p[1] + 0.001
+    --     sim.setObjectPosition(objHandle, p)
+         sim.step() -- resume in next simulation step
+     end
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
