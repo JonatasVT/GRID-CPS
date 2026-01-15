@@ -1,0 +1,78 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_thread()
+    sim = require('sim')
+    simZMQ = require('simZMQ')
+    context = simZMQ.ctx_new()
+    responder = simZMQ.socket(context, simZMQ.ROUTER)
+    local rc = simZMQ.bind(responder, 'tcp://*:5501')
+    if rc ~= 0 then
+        error('failed bind')
+    end
+    while true do
+        local rc, id = simZMQ.recv(responder, 0)
+        local rc, data = simZMQ.recv(responder, 0)
+        if sim.getInt32Signal("NADC")==1 then
+            print("SEND NADC")
+            simZMQ.send(responder, id, simZMQ.SNDMORE)
+            simZMQ.send(responder,"NADC",0)
+            sim.clearInt32Signal("NADC")
+        end
+        if data=="deleted" then
+            print("DELETED from DEALER")
+        end
+        if data=="delete" then
+            print(#data)
+            print("DEL==1")
+            sim.setInt32Signal("DEL",1)
+        else
+            if sim.getInt32Signal("NAwork")==nil then
+                print(#data)
+                print("NAWclean")
+                simZMQ.send(responder, id, simZMQ.SNDMORE)
+                simZMQ.send(responder,"NAWclean",0)
+            end
+        end
+        if #data>7 then
+            print(#data)
+            data=sim.unpackTable(data)
+            printf('[responder] Received "%s"', data)
+            sim.setInt32Signal("data1",data[1])
+            sim.setInt32Signal("data2",data[2])
+            sim.setStringSignal("data3",data[3])
+            sim.setStringSignal("data4",data[4])
+            sim.setInt32Signal("data5",data[5])
+            T=data[5]
+            simZMQ.send(responder, id, simZMQ.SNDMORE)
+            simZMQ.send(responder,"delete",0)
+            sim.waitForSignal("NAsend")
+            data={}
+            if sim.getInt32Signal("NAsend")~=nil then 
+                if data[1]~=sim.getInt32Signal("NAsend") then
+                    data[1]=sim.getInt32Signal("NAsend")
+                    if sim.getObjectChild(data[1],0)~=-1 then
+                        data[2]=sim.getObjectChild(data[1],0)
+                        data[3]=sim.getObjectAlias(data[1])
+                        data[4]=sim.getObjectAlias(data[2])
+                    else
+                        data[2]=0
+                        data[3]=0
+                        data[4]=0
+                    end
+                    data[5]=T
+                    print("[responder] Sending:")
+                    print(data)
+                    simZMQ.send(responder, id, simZMQ.SNDMORE)
+                    simZMQ.send(responder, sim.packTable(data), 0)
+                    sim.clearInt32Signal("NAsend")
+                end
+            end
+        end
+    end
+end
+
+function sysCall_cleanup()
+    simZMQ.close(responder)
+    simZMQ.ctx_term(context)
+end
