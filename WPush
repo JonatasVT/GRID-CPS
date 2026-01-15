@@ -1,0 +1,48 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    id=0
+    Rack=sim.getObject("/Store")
+    sim.setStepping(true) -- enabling stepping mode
+    -- Put some initialization code here
+end
+
+function sysCall_thread()
+    -- Put your main code here, e.g.:
+    --
+    while not sim.getSimulationStopping() do
+        sim.waitForSignal("WPush")
+        sim.wait(1)
+        sim.waitForSignal("mp")
+        if sim.getBufferSignal("mp") then
+            mp=sim.getBufferSignal("mp")
+            sim.wait(0.1)
+            mp=sim.unpackTable(mp)
+            if id<=table.getn(mp) then
+                id=id+1
+                mp=sim.getBufferSignal("mp")
+                mp=sim.unpackTable(mp)
+                print("wpush mp and alias:")
+                print(mp)
+                print(mp[id][1])
+                print(sim.getObjectAlias(mp[id][1]))
+                if (sim.getObjectParent(mp[id][1])==Rack)then
+                    sim.setInt32Signal("RPush",mp[id][1])
+                    print("RPush="..mp[id][1].." id="..id)
+                    print("child="..sim.getObjectChild(mp[id][1],0))
+                    print("child="..sim.getObjectChild(mp[id][1],1))
+                    sim.clearInt32Signal("WPush")
+                end
+                if (id==table.getn(mp)) then
+                    sim.clearInt32Signal("WPush")
+                    id=0
+                end
+            end
+        end
+        sim.step();
+    end
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
