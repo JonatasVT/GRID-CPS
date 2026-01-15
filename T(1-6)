@@ -1,0 +1,59 @@
+-- Copyright 2025 Jônatas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    T=sim.getObject('..')
+    sig=sim.getObjectAlias(T)
+    path=sim.getObject('/Path')
+    pathData=sim.unpackDoubleTable(sim.getBufferProperty(path, 'customData.PATH', {noError = true}))
+    local m=Matrix(#pathData//7,7,pathData)
+    pathPositions=m:slice(1,1,m:rows(),3):data()
+    pathQuaternions=m:slice(1,4,m:rows(),7):data()
+    pathLengths,totalLength=sim.getPathLengths(pathPositions,3)
+    velocity=0.1 -- m/s
+    posAlongPath=9.6
+    previousSimulationTime=0
+    CP=sim.getObject('../CP')
+    pp={0,0,0}
+    sim.setStepping(true)
+    sim.setInt32Signal(sig,0)
+end
+
+function sysCall_thread()
+    while true do
+        r=sim.checkCollision(CP,sim.handle_all)
+        p=sim.getObjectPosition(T)
+        t=sim.getSimulationTime()
+        vl=(p[1]-pp[1]+p[2]-pp[2]+p[3]-pp[3])/(t-previousSimulationTime)
+        if r==1 then 
+            if  vl~=0 then
+                criteria=1
+            end
+        else    
+            if sim.getInt32Signal(sig)==1 then
+                criteria=1
+            else
+                criteria=0
+            end
+        end
+        pp=p
+        if criteria==0 then
+            t=sim.getSimulationTime()
+            posAlongPath=posAlongPath+velocity*(t-previousSimulationTime)
+            posAlongPath=posAlongPath % totalLength
+            pos=sim.getPathInterpolatedConfig(pathPositions,pathLengths,posAlongPath)
+            quat=sim.getPathInterpolatedConfig(pathQuaternions,pathLengths,posAlongPath,nil,{2,2,2,2})
+            sim.setObjectPosition(T,pos,path)
+            sim.setObjectQuaternion(T,quat,path)
+            previousSimulationTime=t
+            p=sim.getObjectPosition(T)
+            sim.step()
+        else
+            previousSimulationTime=sim.getSimulationTime()
+            p=sim.getObjectPosition(T)
+            m=sim.getInt32Signal(sig)
+            sim.step()
+        end
+    end
+end
