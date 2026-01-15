@@ -1,0 +1,177 @@
+-- Copyright 2025 J?natas Venancio Teixeira
+-- License: Apache-2.0
+
+function sysCall_init()
+    sim = require('sim')
+    simIK = require('simIK')
+    sim.setStepping(true)
+    sim.setInt32Signal("NMgripper",0)
+    corout=coroutine.create(coroutineMain)
+    -- Put some initialization code here
+    -- sim.setStepping(true) -- enabling stepping mode
+        -- Set-up some of the RML vectors:
+    maxVel={5}
+    maxAccel={2}
+    maxJerk={0.01}
+    -- Get a few handles linked to ik in that robot:
+    base=sim.getObject('..')
+    tip=sim.getObject('../tip')
+    target=sim.getObject('../target')
+    
+    -- Now build 4 IK groups handling the kinematics of this robot, using the convenience function simIK.addElementFromScene:
+    ikEnv=simIK.createEnvironment()
+    
+    ikGroup=simIK.createGroup(ikEnv)
+    simIK.setGroupCalculation(ikEnv,ikGroup,simIK.method_pseudo_inverse,0,3)
+    simIK.addElementFromScene(ikEnv,ikGroup,base,tip,target,simIK.constraint_pose)
+    
+    auxData={}
+    auxData.ikGroups=ikGroup
+    auxData.target=target
+end
+
+function sysCall_actuation()
+    if coroutine.status(corout)~='dead' then
+        local ok,errorMsg=coroutine.resume(corout)
+        if errorMsg then
+            error(debug.traceback(corout,errorMsg),2)
+        end
+    end
+end
+
+function callback(pose,velocity,accel,auxData)
+    sim.setObjectPose(auxData.target,sim.handle_world,pose)
+    simIK.handleGroup(ikEnv,auxData.ikGroups,{syncWorlds=true})
+end
+
+function moveToPose(maxVelocity,maxAcceleration,maxJerk,targetPose,auxData)
+    currentPose=sim.getObjectPose(auxData.target,sim.handle_world)
+    return sim.moveToPose(-1,currentPose,maxVelocity,maxAcceleration,maxJerk,targetPose,callback,auxData,{1,1,1,0.1})
+end
+
+
+function coroutineMain()
+    -- Get the current pose of the robot's tooltip:
+    local initQ=sim.getObjectPose(target,sim.handle_world)
+    self=sim.getObject("../R")
+ -- Main routine:
+    while true do
+        sim.setInt32Signal("RPC",1)
+        print("coroutineMain, R")
+        sim.waitForSignal("NMRP")
+        print("coroutineMain, NMRP:")
+        sim.setInt32Signal("NMwork",1)
+        print("NMW1")
+        RP=sim.getBufferSignal("NMRP")
+        sim.wait(0.1)
+        RP=sim.unpackTable(RP)
+        print(RP)
+        -- 1. Pick-up a square:
+        -- Go straight over
+        q=RP[2]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- Go down pick the pallet
+        q=RP[1]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- close gripper: 
+        sim.setInt32Signal("NMgripper",1)
+        sim.wait(2)
+        -- Go straight up
+        q=RP[2]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- Go straight over
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- Go down release the pallet
+        q=RP[4]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- open gripper:
+        sim.setInt32Signal("NMgripper",0)
+        sim.wait(2)
+        sim.setInt32Signal("B2",1)
+        sim.step()
+        -- Go straight over
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go take square
+        q=RP[5]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)            
+         -- Activate suction pad:
+        sim.setInt32Signal("NMgripper",1)
+        sim.wait(2)
+        sim.step()           
+        -- Go straight over
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go straight over
+        q=RP[7]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go down release the square
+        q=RP[6]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- open gripper:
+        sim.setInt32Signal("NMgripper",0)
+        sim.wait(2)
+        sim.step()
+        -- Go straight over
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        
+        sim.setInt32Signal("B2",2)
+        -- Go down take the cilinder
+        q=RP[6]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.setInt32Signal("NMgripper",1)
+        sim.wait(2)
+        -- Go straight over
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.step()
+        -- Go down take the cilinder
+        q=RP[5]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.setInt32Signal("NMgripper",0)
+        sim.wait(2)
+        sim.step() 
+                    
+        -- Go down pick the pallet
+        q=RP[4]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Activate suction pad:
+        sim.setInt32Signal("NMgripper",1)
+        sim.wait(2)
+        -- Go straight up
+        q=RP[3]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go straight over
+        q=RP[2]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go down release the pallet
+        q=RP[1]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        sim.setInt32Signal("NMgripper",0)
+        sim.wait(2)
+        sim.setInt32Signal("NMload",1)
+        sim.wait(2)
+        -- Go straight over
+        q=RP[2]
+        moveToPose(maxVel,maxAccel,maxJerk,q,auxData)
+        -- Go to initial pose:
+        moveToPose(maxVel,maxAccel,maxJerk,initQ,auxData)
+        sim.clearInt32Signal("NMwork")
+        sim.clearBufferSignal("NMRP")
+        print(sim.getBufferSignal("NMRP"))
+        print("R clear NW")
+        sim.wait(1)
+        sim.setObjectInt32Param(self,sim.scriptintparam_enabled,0)
+    end
+end
+function sysCall_cleanup()
+    simIK.eraseEnvironment(ikEnv)
+end
