@@ -1,4 +1,4 @@
-# GRID-CPS
+# GRID-CPS - NM-ROUTER
 A I4.0 Doctoral Thesis Repository
 
 This branch contains the CoppeliaSim simulation files and control scripts associated with the Machining Workstation (NM) of the GRID-CPS architecture. It implements the distributed cyber-layer logic required to coordinate pallet handling, part manipulation, and machining operations such as drilling and milling.
