@@ -1,4 +1,5 @@
-# GRID-CPS
+# GRID-CPS - CoppeliaSim Files
 A I4.0 Doctoral Thesis Repository
 
-To keep the different parts of the project well-organized, reproducible, and independent (e.g., separate experiments, paper versions, thesis chapters, or major development stages), **the files are intentionally separated across multiple branches** instead of mixing everything in a single branch or directory tree.
+
+This branch contains the complete set of CoppeliaSim simulation files developed for the GRID-CPS project, together with the CoppeliaSim 4.9 Rev. 6 installation package required to ensure software version compatibility.
