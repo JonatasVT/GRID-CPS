@@ -8,4 +8,5 @@ The NW-DEALER branch focuses on decision-making related to pallet availability, 
 This branch also acts as the central coordination point for production requests, interfacing with other workstation simulations through ZMQ-based routing mechanisms. It can operate as a standalone simulation or as part of the integrated distributed CPS and serves as a reference implementation of the warehouse node within the 5C-compliant GRID-CPS framework, supporting experimentation with decentralized control and material-flow coordination.
 
 NW - DEALER Signals Diagram 
+
 <img width="685" height="815" alt="image" src="https://github.com/user-attachments/assets/83dc7e9a-a86c-49b0-99aa-5e570952f36f" />
