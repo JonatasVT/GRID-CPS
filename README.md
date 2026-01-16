@@ -6,3 +6,8 @@ This branch contains the CoppeliaSim control scripts associated with the Machini
 The NM-ROUTER branch focuses on the interaction between transportation boards, intermediate buffers, and machining equipment. The control logic is structured as a set of autonomous scripts that communicate through signal-based mechanisms, enabling synchronized execution of pick-and-place tasks and machining workflows. Each script represents a computational node responsible for a specific function within the workstation.
 
 This branch can operate independently or as part of the integrated distributed system through ZMQ-based routing, allowing coordination with other workstations. It serves as a reference implementation of the machining node within the 5C-compliant GRID-CPS framework and supports experimentation with distributed control strategies in manufacturing environments.
+
+NM-ROUTER - Signal Diagram
+
+<img width="280" height="452" alt="image" src="https://github.com/user-attachments/assets/659b90c0-0351-475a-8874-7d04430bc087" />
+
