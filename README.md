@@ -6,3 +6,7 @@ This branch contains the CoppeliaSim control scripts associated with the Assembl
 The NA-ROUTER branch focuses on flexible control of assembly tasks, including pallet handling, part transfer between buffers and assembling boards, and interaction with quality inspection processes. The control logic is decomposed into multiple autonomous scripts that communicate through signal-based mechanisms, reflecting the distributed and System-of-Systems principles adopted in the proposed CPS architecture.
 
 This branch is designed to operate as an independent simulation file or as part of the integrated distributed system, communicating with other workstations via ZMQ-based routing mechanisms. It serves as a reference implementation of the assembling node within the 5C-compliant GRID-CPS framework and supports further experimentation, extension, and comparative analysis.
+
+NA - ROUTER - Signals Diagram
+
+<img width="408" height="437" alt="image" src="https://github.com/user-attachments/assets/707acc7a-cadc-4d47-8894-e90be0711d9f" />
