@@ -1,7 +1,7 @@
 # GRID-CPS - NQ-Router - Under Development
 A I4.0 Doctoral Thesis Repository
 
-This branch contains the CoppeliaSim simulation files and control scripts associated with the Quality Inspection Workstation (NQ) of the GRID-CPS architecture. It extends the material-handling logic of previous workstations by incorporating inspection and discard operations for defective parts.
+This branch contains the CoppeliaSim control scripts associated with the Quality Inspection Workstation (NQ) of the GRID-CPS architecture. It extends the material-handling logic of previous workstations by incorporating inspection and discard operations for defective parts.
 
 The NQ-ROUTER branch implements autonomous control logic for transferring parts between pallets and quality inspection boards, evaluating inspection outcomes, and executing discard procedures when required. Communication among scripts is achieved through signal-based coordination, ensuring consistent synchronization with upstream assembling operations and downstream material flow.
 
